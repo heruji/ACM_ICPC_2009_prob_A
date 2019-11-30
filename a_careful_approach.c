@@ -10,56 +10,60 @@
 // this is the least one feasible on OJ test cases 
 #define ITER_NUM 18
 
-// a struct used to hold the start and end of an interval during which
-// a plane can safely land
-typedef struct pair {
+// a struct used to hold the start and end of a time window during
+// which a plane can safely land
+typedef struct time_window {
     double start;
     double end;
-} pair;
+} time_window;
+
 
 // landing scenarios, each containing a start time and an end time.
-pair timetable[MAX_N];
-// pointers to items in timetable.
-pair *p_timetable[MAX_N];
+time_window timetable[MAX_N];
 
-// swap ith and jth items in `p_timetable`
+// pointers to items in timetable. used for permutation.
+time_window *p_items_in_timetable[MAX_N];
+
+
+// swap ith and jth items in `p_items_in_timetable`
 void swap(int i, int j) {
-    pair *t;
+    time_window *temp;
 
     if (i == j) {
         return;
     }
 
-    t = p_timetable[i];
-    p_timetable[i] = p_timetable[j];
-    p_timetable[j] = t;
+    temp = p_items_in_timetable[i];
+    p_items_in_timetable[i] = p_items_in_timetable[j];
+    p_items_in_timetable[j] = temp;
 }
 
 
-// check whether the given `window` is feasible or not
-bool check_time_window(int n, double window, double start_time) {
+// check whether the given mininum gap is feasible or not
+bool check_min_time_gap(int n, double min_gap, double landing_time) {
     int i;
     bool feasible;
-    double mininal_next_start_time, next_start_time;
+    double min_next_landing_time, next_landing_time;
 
-    // the `window` is feasible if all items in timetable are visited
+    // the `min_gap` is feasible if all items in timetable are visited
     if (n == 0) {
         return true;
     }
 
-    // increase start time by `window` each time
-    mininal_next_start_time = start_time + window;
+    // increase landing time by `min_gap` at least
+    min_next_landing_time = landing_time + min_gap;
 
-    // traverse through the `timetable`. recursively check `window`
+    // traverse through the `timetable`. recursively check `min_gap`
+    // items visited in `timetable` are swapped to the end of the array
     for (i = 0; i < n; i++) {
-        if (mininal_next_start_time <= p_timetable[i]->end) {
-            // decide `next_start_time` greedily
-            next_start_time = (
-                mininal_next_start_time > p_timetable[i]->start ?
-                mininal_next_start_time : p_timetable[i]->start);
+        if (min_next_landing_time <= p_items_in_timetable[i]->end) {
+            // decide `next_landing_time` greedily
+            next_landing_time = (
+                min_next_landing_time > p_items_in_timetable[i]->start ?
+                min_next_landing_time : p_items_in_timetable[i]->start);
 
             swap(i, n - 1);
-            feasible = check_time_window(n - 1, window, next_start_time);
+            feasible = check_min_time_gap(n - 1, min_gap, next_landing_time);
             swap(i, n - 1);
 
             if (feasible) {
@@ -72,45 +76,46 @@ bool check_time_window(int n, double window, double start_time) {
 }
 
 
-// binary search for the optimal time window.
-// for a given time window, recursively check whether it is feasible
-double binary_search(int n, double low, double high) {
+// binary search for the optimal minimum time gap.
+// for a given minimum time gap, recursively check whether it is feasible
+double binary_search(int n, double lower_bound, double upper_bound) {
     int i, j;
     bool feasible;
-    double mid, start_time;
+    double mid, landing_time;
 
-    // adjust the `ITER_NUM` here to make sure we have good precision for
-    // `second`, so that it is rounded to a correct integer
+    // `ITER_NUM` should be sufficiently large here (but not too large) to
+    // make sure we have enough precision for `second` value
     for (i = 0; i < ITER_NUM; i++) {
-        mid = (low + high) / 2;
+        mid = (lower_bound + upper_bound) / 2;
 
         for (j = 0; j < n; j++) {
-            // note that `start_time` should be fetched out of two `swap`
-            start_time = p_timetable[j]->start;
+            // note that `landing_time` should be fetched out of two `swap`
+            landing_time = p_items_in_timetable[j]->start;
 
             swap(j, n - 1);
-            feasible = check_time_window(n - 1, mid, start_time);
+            feasible = check_min_time_gap(n - 1, mid, landing_time);
             swap(j, n - 1);
 
             // if feasible, increase lower bound
             if (feasible) {
-                low = mid;
+                lower_bound = mid;
                 break;
             }
         }
 
         // if not feasible, decrease upper bound
         if (!feasible) {
-            high = mid;
+            upper_bound = mid;
         }
     }
 
-    return low;
+    return lower_bound;
 }
 
 
-// initialize `timetable` and `p_timetable`
+// initialize `timetable` and `p_items_in_timetable`.
 // also return the mininum start time and the maximum end time
+// of all time windows.
 void read_inputs(int n, double *min_start, double *max_end) {
     int i;
 
@@ -119,7 +124,7 @@ void read_inputs(int n, double *min_start, double *max_end) {
 
     for (i = 0; i < n; i++) {
         scanf("%lf%lf", &timetable[i].start, &timetable[i].end);
-        p_timetable[i] = timetable + i;
+        p_items_in_timetable[i] = timetable + i;
 
         // update `min_start`
         if (timetable[i].start < *min_start) {
@@ -134,13 +139,14 @@ void read_inputs(int n, double *min_start, double *max_end) {
 }
 
 
-// output should be displayed in 'minute:second' pattern
-void display_output(double optimal_window, int case_index) {
+// output should be displayed in a pattern like
+// 'Case <index>: <minute>:<second>'
+void display_output(double optimal_min_time_gap, int case_index) {
     int minute, second;
 
-    minute = (int) optimal_window;
+    minute = (int) optimal_min_time_gap;
     // second is rounded to the nearest integer
-    second = (int) ((optimal_window - minute) * 60 + 0.5);
+    second = (int) ((optimal_min_time_gap - minute) * 60 + 0.5);
 
     if (second == 60) {
         minute += 1;
@@ -153,7 +159,7 @@ void display_output(double optimal_window, int case_index) {
 
 int main(void) {
     int i, n, case_index;
-    double min_start, max_end, optimal_window, upper_bound;
+    double min_start, max_end, optimal_min_time_gap, upper_bound;
 
     // used in output to indicate the case number
     case_index = 1;
@@ -164,18 +170,18 @@ int main(void) {
             break;
         }
 
-        // initialize `timetable` and `p_timetable`. we will need the 
-        // mininal start time and the maximal end time to calculate
+        // initialize `timetable` and `p_items_in_timetable`. we will need
+        // the mininal start time and the maximal end time to calculate
         // the upper bound for binary search
         read_inputs(n, &min_start, &max_end);
 
         // upper bound can be decided by `max_end`, `min_start` and `n`
         upper_bound = (max_end - min_start) / (n - 1);
-        optimal_window = binary_search(n, 0, upper_bound);
+        optimal_min_time_gap = binary_search(n, 0, upper_bound);
 
-        display_output(optimal_window, case_index);
+        display_output(optimal_min_time_gap, case_index);
 
-        case_index += 1;
+        ++case_index;
     }
 
     return 0;
