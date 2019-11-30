@@ -1,58 +1,74 @@
-# depth fisrt search. check whether the given `window` is feasible or not
-def check_time_window_dfs(timetable, window, start_time, visited):
-    if all(visited):
+# recursively check whether the given `min_gap` is feasible or not
+def check_min_time_gap(n, min_gap, landing_time, timetable):
+    if n == 0:
         return True
 
-    next_start_time = start_time + window
-    for i in range(len(timetable)):
-        if not visited[i] and next_start_time <= timetable[i][1]:
-            visited[i] = True
-            next_start_time = max(next_start_time, timetable[i][0])
-            if check_time_window_dfs(timetable, window, next_start_time, visited):
+    min_next_landing_time = landing_time + min_gap
+
+    for i in range(n):
+        if min_next_landing_time <= timetable[i][1]:
+            next_landing_time = max(min_next_landing_time, timetable[i][0])
+
+            timetable[i], timetable[n - 1] = timetable[n - 1], timetable[i]
+            feasible = check_min_time_gap(n - 1, min_gap, next_landing_time, timetable)
+            timetable[i], timetable[n - 1] = timetable[n - 1], timetable[i]
+
+            if feasible:
                 return True
-            visited[i] = False
     else:
         return False
 
 
 if __name__ == '__main__':
+    max_n = 8
+    max_end_time = 1440.
+    iter_num = 18
+
+    timetable = [None] * max_n
     case_index = 1
+
     while True:
         # some initializing work...
         n = int(input())
         if n == 0:
             break
 
-        timetable = []
-        for _ in range(n):
+        min_start = max_end_time
+        max_end = 0.
+        for i in range(n):
             input_ = input()
-            start, end, *_ = input_.split(' ')
-            timetable.append((float(start), float(end)))
+            start, end = input_.split(' ')
+            timetable[i] = (float(start), float(end))
+
+            if timetable[i][0] < min_start:
+                min_start = timetable[i][0]
+
+            if timetable[i][1] > max_end:
+                max_end = timetable[i][1]
 
 
-        # binary search for the optimal time window
-        window_low, window_high = 0., 1440.
+        # binary search for the optimal min time gap
+        lower_bound, upper_bound = 0., (max_end - min_start) / (n - 1)
         
-        for _ in range(70): # explain '70' in presentation
-            window = (window_low + window_high) / 2
+        for _ in range(iter_num):
+            mid = (lower_bound + upper_bound) / 2
 
             for i in range(n):
-                visited = [False] * n
-                visited[i] = True
-                if check_time_window_dfs(timetable, window, timetable[i][0], visited):
-                    feasible = True
+                landing_time = timetable[i][0]
+
+                timetable[i], timetable[n - 1] = timetable[n - 1], timetable[i]
+                feasible = check_min_time_gap(n - 1, mid, landing_time, timetable)
+                timetable[i], timetable[n - 1] = timetable[n - 1], timetable[i]
+
+                if feasible:
+                    lower_bound = mid
                     break
             else:
-                feasible = False
-
-            if feasible:
-                window_low = window
-            else:
-                window_high = window
+                upper_bound = mid
 
 
-        minute = int(window_low)
-        second = round((window_low - minute) * 60)
+        minute = int(lower_bound)
+        second = round((lower_bound - minute) * 60)
         
         if second == 60:
             minute += 1

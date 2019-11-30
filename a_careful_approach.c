@@ -10,6 +10,9 @@
 // this is the least one feasible on OJ test cases 
 #define ITER_NUM 18
 
+// the maximum end time of a window
+#define MAX_END_TIME 1440
+
 // a struct used to hold the start and end of a time window during
 // which a plane can safely land
 typedef struct time_window {
@@ -119,7 +122,7 @@ double binary_search(int n, double lower_bound, double upper_bound) {
 void read_inputs(int n, double *min_start, double *max_end) {
     int i;
 
-    *min_start = 1440;
+    *min_start = MAX_END_TIME;
     *max_end = 0;
 
     for (i = 0; i < n; i++) {
