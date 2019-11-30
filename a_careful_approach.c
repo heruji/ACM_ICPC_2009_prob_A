@@ -72,12 +72,88 @@ bool check_time_window(int n, double window, double start_time) {
 }
 
 
-int main(void) {
-    int i, j, n, case_index;
-    int minute, second;
+// binary search for the optimal time window.
+// for a given time window, recursively check whether it is feasible
+double binary_search(int n, double low, double high) {
+    int i, j;
     bool feasible;
-    double window, window_low, window_high, start_time;
-    double min_start, max_end;
+    double mid, start_time;
+
+    // adjust the `ITER_NUM` here to make sure we have good precision for
+    // `second`, so that it is rounded to a correct integer
+    for (i = 0; i < ITER_NUM; i++) {
+        mid = (low + high) / 2;
+
+        for (j = 0; j < n; j++) {
+            // note that `start_time` should be fetched out of two `swap`
+            start_time = p_timetable[j]->start;
+
+            swap(j, n - 1);
+            feasible = check_time_window(n - 1, mid, start_time);
+            swap(j, n - 1);
+
+            // if feasible, increase lower bound
+            if (feasible) {
+                low = mid;
+                break;
+            }
+        }
+
+        // if not feasible, decrease upper bound
+        if (!feasible) {
+            high = mid;
+        }
+    }
+
+    return low;
+}
+
+
+// initialize `timetable` and `p_timetable`
+// also return the mininum start time and the maximum end time
+void read_inputs(int n, double *min_start, double *max_end) {
+    int i;
+
+    *min_start = 1440;
+    *max_end = 0;
+
+    for (i = 0; i < n; i++) {
+        scanf("%lf%lf", &timetable[i].start, &timetable[i].end);
+        p_timetable[i] = timetable + i;
+
+        // update `min_start`
+        if (timetable[i].start < *min_start) {
+            *min_start = timetable[i].start;
+        }
+
+        // update `max_end`
+        if (timetable[i].end > *max_end) {
+            *max_end = timetable[i].end;
+        }
+    }
+}
+
+
+// output should be displayed in 'minute:second' pattern
+void display_output(double optimal_window, int case_index) {
+    int minute, second;
+
+    minute = (int) optimal_window;
+    // second is rounded to the nearest integer
+    second = (int) ((optimal_window - minute) * 60 + 0.5);
+
+    if (second == 60) {
+        minute += 1;
+        second = 0;
+    }
+    
+    printf("Case %d: %d:%02d\n", case_index, minute, second);
+}
+
+
+int main(void) {
+    int i, n, case_index;
+    double min_start, max_end, optimal_window, upper_bound;
 
     // used in output to indicate the case number
     case_index = 1;
@@ -88,71 +164,17 @@ int main(void) {
             break;
         }
 
-        // initialize `timetable` and `p_timetable`
-        // we will need the mininal start time and the maximal end time
-        min_start = 1440;
-        max_end = 0;
+        // initialize `timetable` and `p_timetable`. we will need the 
+        // mininal start time and the maximal end time to calculate
+        // the upper bound for binary search
+        read_inputs(n, &min_start, &max_end);
 
-        for (i = 0; i < n; i++) {
-            scanf("%lf%lf", &timetable[i].start, &timetable[i].end);
-            p_timetable[i] = timetable + i;
-
-            // update `min_start`
-            if (timetable[i].start < min_start) {
-                min_start = timetable[i].start;
-            }
-
-            // update `max_end`
-            if (timetable[i].end > max_end) {
-                max_end = timetable[i].end;
-            }
-        }
-
-
-        // binary search for the optimal time window.
-        // for a given time window, recursively check whether it is feasible
         // upper bound can be decided by `max_end`, `min_start` and `n`
-        window_low = 0;
-        window_high = (max_end - min_start) / (n - 1);
+        upper_bound = (max_end - min_start) / (n - 1);
+        optimal_window = binary_search(n, 0, upper_bound);
 
-        // adjust the `ITER_NUM` here to make sure we have good precision for
-        // `second`, so that it is rounded to a correct integer
-        for (i = 0; i < ITER_NUM; i++) {
-            window = (window_low + window_high) / 2;
+        display_output(optimal_window, case_index);
 
-            for (j = 0; j < n; j++) {
-                // note that `start_time` should be fetched out of two `swap`
-                start_time = p_timetable[j]->start;
-
-                swap(j, n - 1);
-                feasible = check_time_window(n - 1, window, start_time);
-                swap(j, n - 1);
-
-                // if feasible, increase lower bound
-                if (feasible) {
-                    window_low = window;
-                    break;
-                }
-            }
-
-            // if not feasible, decrease upper bound
-            if (!feasible) {
-                window_high = window;
-            }
-        }
-
-
-        // output should be displayed in 'minute:second' pattern
-        minute = (int) window_low;
-        // second is rounded to the nearest integer
-        second = (int) ((window_low - minute) * 60 + 0.5);
-
-        if (second == 60) {
-            minute += 1;
-            second = 0;
-        }
-        
-        printf("Case %d: %d:%02d\n", case_index, minute, second);
         case_index += 1;
     }
 
